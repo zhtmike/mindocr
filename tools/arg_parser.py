@@ -36,8 +36,7 @@ def create_parser():
     group.add_argument("--data_url", type=str, default="", help="path to dataset")
     group.add_argument("--ckpt_url", type=str, default="", help="pre_train_model path in obs")
     group.add_argument("--train_url", type=str, default="", help="model folder to save/load")
-
-    # args = parser.parse_args()
+    group.add_argument("--pretrain_url", type=str, default="", help="url for pretrain model")
 
     return parser
 
@@ -56,7 +55,6 @@ def _parse_options(opts: list):
         ), "Invalid option {}. A valid option must be in the format of {{key_name}}={{value}}".format(opt_str)
         k, v = opt_str.strip().split("=")
         options[k] = yaml.load(v, Loader=yaml.Loader)
-    # print('Parsed options: ', options)
 
     return options
 

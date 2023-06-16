@@ -16,6 +16,11 @@ Example:
 
 import argparse
 import os
+import sys
+
+__dir__ = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(__dir__, "../..")))
+
 
 from ctw1500 import CTW1500_Converter
 from ic15 import IC15_Converter
@@ -26,7 +31,7 @@ from synthtext import SYNTHTEXT_Converter
 from td500 import TD500_Converter
 from totaltext import TOTALTEXT_Converter
 
-supported_datasets = ["ic15", "totaltext", "mlt2017", "syntext150k", "svt", "td500", "ctw1500"]
+supported_datasets = ["ic15", "totaltext", "mlt2017", "syntext150k", "svt", "td500", "ctw1500", "synthtext"]
 
 
 def convert(dataset_name, task, image_dir, label_path, output_path=None, path_mode="relative"):
@@ -67,7 +72,7 @@ if __name__ == "__main__":
         "--task",
         type=str,
         default="det",
-        help="Target task, text detection or recognition, valid choices: det, rec",
+        help="Target task, text detection or recognition, valid choices: det, rec, rec_lmdb",
     )
     parser.add_argument(
         "-i", "--image_dir", type=str, default="./ic15/det/images/", help="Directory to the images of the dataset"

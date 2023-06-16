@@ -130,6 +130,9 @@ class LMDBDataset(BaseDataset):
         else:
             results = {}
 
+        message = "\n".join([f"{x['rootdir']:<45}{x['data_size']}" for x in results.values()])
+        print("INFO: Number of LMDB records:\n" + message)
+
         return results
 
     def load_hierarchical_lmdb_dataset(self, data_dir, start_idx=0):
@@ -137,7 +140,11 @@ class LMDBDataset(BaseDataset):
         dataset_idx = start_idx
         for rootdir, dirs, _ in os.walk(data_dir + "/"):
             if not dirs:
-                env = lmdb.open(rootdir, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+                try:
+                    env = lmdb.open(rootdir, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+                except lmdb.Error as e:
+                    print(f"WARNING: {str(e)}")
+                    continue
                 txn = env.begin(write=False)
                 data_size = int(txn.get("num-samples".encode()))
                 lmdb_sets[dataset_idx] = {"rootdir": rootdir, "env": env, "txn": txn, "data_size": data_size}
