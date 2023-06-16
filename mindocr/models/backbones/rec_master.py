@@ -82,17 +82,31 @@ class BasicBlockGCAtten(nn.Cell):
 
 @register_backbone_class
 class RecResNetMaster(nn.Cell):
+    """MASTER Backbone, based on
+    `"MASTER: Multi-Aspect Non-local Network for Scene Text Recognition"
+    <https://arxiv.org/abs/2205.00159>`_.
+
+    Args:
+        block: Type of the block, support BasicBlockGCAtten only.
+        layers: Numeber of the layers in teach block.
+        in_channels: Number of the input channels. Default: 3.
+        norm: Normalization method. If it is None, then BatchNorm2d will be used. Default: None.
+        gcb_config: Configurations of the CGB block. If it is None, then no GCB block is applied. Default: None.
+    """
     def __init__(
         self,
         block: Type[BasicBlockGCAtten],
         layers: List[int],
         in_channels: int = 3,
-        norm: Optional[nn.Cell] = None,
+        norm: Optional[Type[nn.Cell]] = None,
         gcb_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         if norm is None:
             norm = nn.BatchNorm2d
+
+        if gcb_config is None:
+            gcb_config = dict(layers=[False]*len(layers))
 
         self.norm = norm
         self.input_channels = 128
@@ -276,7 +290,12 @@ class RecResNetMaster(nn.Cell):
 
 
 @register_backbone
-def rec_resnet_master_resnet31(pretrained: bool = False, **kwargs):
+def rec_resnet_master_resnet31(pretrained: bool = False, **kwargs: Any) -> RecResNetMaster:
+    """Create the MASTER model with Resnet 31 layers.
+    Args:
+        pretrained: Use the pretrained weight. Default: False
+        **kwargs: Dummy arguments for compatibility only.
+    """
     gcb_config = {
         "ratio": 0.0625,
         "headers": 1,

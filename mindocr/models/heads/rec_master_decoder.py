@@ -13,6 +13,22 @@ __all__ = ["MasterDecoder"]
 
 
 class MasterDecoder(nn.Cell):
+    """MASTER Decoder, based on
+    `"MASTER: Multi-Aspect Non-local Network for Scene Text Recognition"
+    <https://arxiv.org/abs/2205.00159>`_.
+
+    Args:
+        in_channels: Number of the input channels.
+        out_channels: Number of the output channels.
+        batch_max_length: The maximum length of the output. Default: 25.
+        multi_heads_count: NUmber of heads in attention layer. Default: 8.
+        stacks: Number of the blocks in the decoder. Default: 3.
+        dropout: Dropout value in the positional encoding and other layers. Default: 0.0.
+        feed_forward_size: Hidden dimension in the feed foward layer. Default: 2048.
+        padding_symbol: The index of the padding symbol. Default: 2
+        share_parameter: Whether to use the shared attention layer and feed foward layer.
+            Default: False.
+    """
     def __init__(
         self,
         in_channels: int,

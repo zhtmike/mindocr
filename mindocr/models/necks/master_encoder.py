@@ -8,6 +8,21 @@ from ..utils import MultiHeadAttention, PositionalEncoding, PositionwiseFeedForw
 
 
 class MasterEncoder(nn.Cell):
+    """MASTER Encoder, based on
+    `"MASTER: Multi-Aspect Non-local Network for Scene Text Recognition"
+    <https://arxiv.org/abs/2205.00159>`_.
+
+    Args:
+        in_channels: Number of the input channels.
+        with_encoder: Whether to use the encoder. If it is False, then only the
+            postional encoding is applied. Default: False.
+        multi_heads_count: NUmber of heads in attention layer. Default: 8.
+        stacks: Number of the blocks in the encoder. Default: 3.
+        dropout: Dropout value in the positional encoding and other layers. Default: 0.2.
+        feed_forward_size: Hidden dimension in the feed foward layer. Default: 2048.
+        share_parameter: Whether to use the shared attention layer and feed foward layer.
+            Default: False.
+    """
     def __init__(
         self,
         in_channels: int,
