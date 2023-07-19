@@ -55,8 +55,8 @@ loss:
 
 scheduler:
   scheduler: warmup_cosine_decay
-  min_lr: 0.00001
-  lr: 0.001
+  min_lr: 0.000005
+  lr: 0.0005
   num_epochs: 20
   warmup_epochs: 1
   decay_epochs: 19
@@ -80,7 +80,7 @@ train:
   dataset:
     type: LMDBDataset
     dataset_root: path/to/data_lmdb_release/
-    data_dir: training/
+    data_dir: ["ST_full", "MJ", "SynthAdd"]
     label_file: null
     sample_ratio: 1.0
     shuffle: True
