@@ -197,6 +197,6 @@ class CTCAttnMultiLoss(LossBase):
 
     def construct(self, logits: Tuple[Tensor, Tensor], ctc_labels: Tensor, attn_labels: Tensor) -> Tensor:
         ctc_logits, attn_logits = logits
-        ctc_loss = self.ctc_criterion(ctc_logits[..., :-1], ctc_labels)
+        ctc_loss = self.ctc_criterion(ctc_logits, ctc_labels)
         attn_loss = self.attn_criterion(attn_logits, attn_labels)
         return ctc_loss * self.ctc_weight + attn_loss * self.attn_weight
