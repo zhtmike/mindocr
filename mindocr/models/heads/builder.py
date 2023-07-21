@@ -12,6 +12,7 @@ supported_heads = [
     'RobustScannerHead',
     'VisionLANHead',
     'ABINetHead',
+    'CTCAttnMultiHead'
 ]
 from .cls_mv3_head import ClsHead
 from .conv_head import ConvHead
@@ -24,6 +25,7 @@ from .det_pse_head import PSEHead
 from .rec_attn_head import AttentionHead
 from .rec_ctc_head import CTCHead
 from .rec_master_decoder import MasterDecoder
+from .rec_multi_head import CTCAttnMultiHead
 from .rec_robustscanner_head import RobustScannerHead
 from .rec_visionlan_head import VisionLANHead
 

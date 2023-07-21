@@ -21,6 +21,7 @@ __all__ = [
     "ClsLabelEncode",
     "SARLabelEncode",
     "RobustScannerRecResizeImg",
+    "RecCTCAttnMultiLabelEncode",
 ]
 _logger = logging.getLogger(__name__)
 
@@ -315,6 +316,28 @@ class RecAttnLabelEncode:
         data["text_length"] = len(data["label"])
         data["text_padded"] = data["label"] + " " * (self.max_text_len - len(data["label"]))
         return data
+
+
+class RecCTCAttnMultiLabelEncode:
+    def __init__(
+        self,
+        max_text_len: int = 25,
+        character_dict_path: Optional[str] = None,
+        use_space_char: bool = False,
+        blank_at_last: bool = True,
+        lower: bool = False,
+        **kwargs,
+    ) -> None:
+        self.ctc_encoder = RecCTCLabelEncode(
+            max_text_len, character_dict_path, use_space_char, blank_at_last=blank_at_last, lower=lower
+        )
+        self.attn_encoder = RecAttnLabelEncode(max_text_len, character_dict_path, use_space_char, lower=lower)
+
+    def __call__(self, data: Dict[str, Any]) -> str:
+        ctc_encoded_data = self.ctc_encoder(data.copy())
+        attn_encoded_data = self.attn_encoder(data.copy())
+        ctc_encoded_data["attn_text_seq"] = attn_encoded_data["text_seq"]
+        return ctc_encoded_data
 
 
 class RecMasterLabelEncode:

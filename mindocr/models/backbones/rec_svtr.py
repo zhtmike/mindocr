@@ -11,7 +11,7 @@ from ...utils.misc import is_ms_version_2
 from ._registry import register_backbone, register_backbone_class
 from .mindcv_models.layers import DropPath
 
-__all__ = ["SVTRNet", "rec_svtr"]
+__all__ = ["SVTRNet", "SVTRGTCGuided", "rec_svtr"]
 
 
 class ConvBNLayer(nn.Cell):
@@ -125,11 +125,14 @@ class Attention(nn.Cell):
         qk_scale: Optional[float] = None,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
+        length_scale_base: int = 256,
+        use_length_scale: bool = False,
     ) -> None:
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim**-0.5
+        self.use_length_scale = use_length_scale
 
         self.qkv = nn.Dense(dim, dim * 3, has_bias=qkv_bias)
         if is_ms_version_2():
@@ -162,6 +165,10 @@ class Attention(nn.Cell):
         self.mixer = mixer
         self.matmul = ops.BatchMatMul()
 
+        if self.use_length_scale:
+            log_length_scale = np.log(self.N) / np.log(length_scale_base)
+            self.log_length_scale = ms.Tensor(log_length_scale, ms.float32)
+
     def construct(self, x: Tensor) -> Tensor:
         if self.HW is not None:
             N = self.N
@@ -172,6 +179,10 @@ class Attention(nn.Cell):
         qkv = ops.reshape(qkv, (-1, N, 3, self.num_heads, C // self.num_heads))
         qkv = ops.transpose(qkv, (2, 0, 3, 1, 4))
         q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
+
+        if self.use_length_scale:
+            q = q * self.log_length_scale
+
         attn = self.matmul(q, k.transpose((0, 1, 3, 2)))
         if self.mixer == "Local":
             attn += self.mask
@@ -205,6 +216,8 @@ class Block(nn.Cell):
         norm_layer: Union[str, Type[nn.Cell]] = "nn.LayerNorm",
         epsilon: float = 1e-6,
         prenorm: bool = True,
+        length_scale_base: int = 256,
+        use_length_scale: bool = False,
     ) -> None:
         super().__init__()
         if isinstance(norm_layer, str):
@@ -222,6 +235,8 @@ class Block(nn.Cell):
                 qk_scale=qk_scale,
                 attn_drop=attn_drop,
                 proj_drop=drop,
+                length_scale_base=length_scale_base,
+                use_length_scale=use_length_scale,
             )
         elif mixer == "Conv":
             self.mixer = ConvMixer(dim, num_heads=num_heads, HW=HW, local_k=local_mixer)
@@ -428,6 +443,8 @@ class SVTRNet(nn.Cell):
         prenorm: int = True,
         use_lenhead: bool = False,
         use_pos_embed: bool = True,
+        use_length_scale: bool = False,
+        length_scale_base: int = 256,
         **kwargs: Any,
     ) -> None:
         r"""SVTRNet Backbone, based on
@@ -457,10 +474,12 @@ class SVTRNet(nn.Cell):
             act: Activation function in each block. Default: nn.GELU.
             last_stage:: Apply the last layer. Default: True.
             extra_pool_at_last_stage: Apply extra averaging pooling with the given window at the last layer. Default: 1.
-            sub_num: Patch coefficient in patch embedding. Default: 2.
-            prenorm: Apply normailzation after feature extraction. Default: True.
+            sub_num: Number of sub patch in patch embedding. Default: 2.
+            prenorm: Use Pre Normalization. Default: True.
             use_lenhead: Add extra head after the backbone for center loss. Default: False.
-            use_pos_embed: Add positional embedding after feature extraction. Default; True.
+            use_pos_embed: Add positional embedding after feature extraction. Default: True.
+            use_length_scale: Use log length scaling in attention calculation. Default: False.
+            length_scale_base: The length scale base. Default: 256
             **kwargs: Dummy arguments for compatibility only.
         """
         super().__init__()
@@ -512,6 +531,8 @@ class SVTRNet(nn.Cell):
                     norm_layer=norm_layer,
                     epsilon=epsilon,
                     prenorm=prenorm,
+                    length_scale_base=length_scale_base,
+                    use_length_scale=use_length_scale,
                 )
                 for i in range(depth[0])
             ]
@@ -546,6 +567,8 @@ class SVTRNet(nn.Cell):
                     norm_layer=norm_layer,
                     epsilon=epsilon,
                     prenorm=prenorm,
+                    length_scale_base=length_scale_base,
+                    use_length_scale=use_length_scale,
                 )
                 for i in range(depth[1])
             ]
@@ -579,6 +602,8 @@ class SVTRNet(nn.Cell):
                     norm_layer=norm_layer,
                     epsilon=epsilon,
                     prenorm=prenorm,
+                    length_scale_base=length_scale_base,
+                    use_length_scale=use_length_scale,
                 )
                 for i in range(depth[2])
             ]
@@ -619,7 +644,7 @@ class SVTRNet(nn.Cell):
             else:
                 self.dropout_len = nn.Dropout(keep_prob=1 - last_drop)
 
-    def forward_features(self, x: Tensor) -> Tensor:
+    def forward_features(self, x: Tensor) -> Tuple[Tensor, ...]:
         x = self.patch_embed(x)
 
         if self.pos_embed is not None:
@@ -627,6 +652,7 @@ class SVTRNet(nn.Cell):
             x = self.pos_drop(x)
 
         x = self.blocks1(x)
+        x1 = x
         if self.patch_merging is not None:
             x = self.sub_sample1(
                 x.transpose([0, 2, 1]).reshape(
@@ -634,6 +660,7 @@ class SVTRNet(nn.Cell):
                 )
             )
         x = self.blocks2(x)
+        x2 = x
         if self.patch_merging is not None:
             x = self.sub_sample2(
                 x.transpose([0, 2, 1]).reshape(
@@ -643,13 +670,14 @@ class SVTRNet(nn.Cell):
         x = self.blocks3(x)
         if not self.prenorm:
             x = self.norm(x)
-        return x
+        x3 = x
+        return x1, x2, x3
 
-    def construct(self, x: Tensor) -> Union[Tensor, Tuple[Tensor, Tensor]]:
-        x = self.forward_features(x)
+    def construct(self, x: Tensor) -> Union[List[Tensor], Tuple[List[Tensor], List[Tensor]]]:
+        x1, x2, x3 = self.forward_features(x)
 
         if self.use_lenhead:
-            len_x = self.len_conv(x.mean(1))
+            len_x = self.len_conv(x3.mean(1))
             len_x = self.dropout_len(self.hardswish_len(len_x))
         else:
             len_x = -1
@@ -660,6 +688,65 @@ class SVTRNet(nn.Cell):
             else:
                 h = self.HW[0]
             x = ops.mean(
+                x3.transpose([0, 2, 1]).reshape([-1, self.embed_dim[2], h, self.HW[1]]),
+                axis=2,
+                keep_dims=True,
+            )
+            x = self.pool(x)
+            x = self.last_conv(x)
+            x = self.hardswish(x)
+            x = self.dropout(x)
+            x = ops.squeeze(x, axis=2)
+            x = ops.transpose(x, (0, 2, 1))
+
+        if self.use_lenhead:
+            return [x1, x2, x3, x], [len_x]
+        else:
+            return [x1, x2, x3, x]
+
+
+@register_backbone_class
+class SVTRGTCGuided(SVTRNet):
+    def forward_features(self, x: Tensor) -> Tuple[Tensor, ...]:
+        x = self.patch_embed(x)
+
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
+            x = self.pos_drop(x)
+
+        x = self.blocks1(x)
+        x1 = x
+        if self.patch_merging is not None:
+            x = self.sub_sample1(
+                x.transpose([0, 2, 1]).reshape(
+                    [-1, self.embed_dim[0], self.HW[0], self.HW[1]]
+                )
+            )
+        x = self.blocks2(x)
+        x2 = x
+        if self.patch_merging is not None:
+            x = self.sub_sample2(
+                x.transpose([0, 2, 1]).reshape(
+                    [-1, self.embed_dim[1], self.HW[0] // 2, self.HW[1]]
+                )
+            )
+        x = self.blocks3(x)
+        if not self.prenorm:
+            x = self.norm(x)
+        x3 = x
+        return x1, x2, x3
+
+    def construct(self, x: Tensor) -> List[Tensor]:
+        x1, x2, x3 = self.forward_features(x)
+
+        if self.last_stage:
+            if self.patch_merging is not None:
+                h = self.HW[0] // 4
+            else:
+                h = self.HW[0]
+
+            x = ops.stop_gradient(x3)
+            x = ops.mean(
                 x.transpose([0, 2, 1]).reshape([-1, self.embed_dim[2], h, self.HW[1]]),
                 axis=2,
                 keep_dims=True,
@@ -668,11 +755,10 @@ class SVTRNet(nn.Cell):
             x = self.last_conv(x)
             x = self.hardswish(x)
             x = self.dropout(x)
+            x = ops.squeeze(x, axis=2)
+            x = ops.transpose(x, (0, 2, 1))
 
-        if self.use_lenhead:
-            return [x], [len_x]
-        else:
-            return [x]
+        return [x1, x2, x3, x]
 
 
 @register_backbone
