@@ -66,6 +66,7 @@ class CTCHead(nn.Cell):
     def construct(self, x: ms.Tensor) -> ms.Tensor:
         h = self.dense1(x)
         if self.mid_channels is not None:
+            h = ops.relu(h)
             h = self.dropout(h)
             h = self.dense2(h)
 

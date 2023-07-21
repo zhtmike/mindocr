@@ -54,8 +54,9 @@ model:
     select_inds: [2, 3]
   head:
     name: CTCAttnMultiHead
+    ctc_hidden_size: 256
     attn_in_channels: 256
-    hidden_size: 256
+    attn_hidden_size: 256
     out_channels: *num_classes
     batch_max_length: *max_text_len
 

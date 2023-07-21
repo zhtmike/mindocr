@@ -15,13 +15,15 @@ class CTCAttnMultiHead(nn.Cell):
         self,
         in_channels: int,
         out_channels: int,
+        ctc_hidden_size: Optional[int] = None,
         attn_in_channels: int = 256,
-        hidden_size: int = 256,
+        attn_hidden_size: int = 256,
         batch_max_length: int = 25,
     ) -> None:
         super().__init__()
-        self.ctc_head = CTCHead(in_channels, out_channels - 1)
-        self.attn_head = AttentionHead(attn_in_channels, out_channels, hidden_size, batch_max_length=batch_max_length)
+        self.ctc_head = CTCHead(in_channels, out_channels - 1, mid_channels=ctc_hidden_size)
+        self.attn_head = AttentionHead(attn_in_channels, out_channels, attn_hidden_size,
+                                       batch_max_length=batch_max_length)
 
     def construct(
         self, inputs: Tuple[Tensor, Tensor], attn_targets: Optional[Tensor] = None
