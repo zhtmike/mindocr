@@ -724,6 +724,7 @@ class SVTRGTCGuided(SVTRNet):
             )
         x = self.blocks2(x)
         x2 = x
+        x = ops.stop_gradient(x)
         if self.patch_merging is not None:
             x = self.sub_sample2(
                 x.transpose([0, 2, 1]).reshape(
@@ -745,9 +746,8 @@ class SVTRGTCGuided(SVTRNet):
             else:
                 h = self.HW[0]
 
-            x = ops.stop_gradient(x3)
             x = ops.mean(
-                x.transpose([0, 2, 1]).reshape([-1, self.embed_dim[2], h, self.HW[1]]),
+                x3.transpose([0, 2, 1]).reshape([-1, self.embed_dim[2], h, self.HW[1]]),
                 axis=2,
                 keep_dims=True,
             )

@@ -51,9 +51,10 @@ model:
     length_scale_base: 256
   neck:
     name: Img2Seq
-    select_inds: [2, 3]
+    select_inds: [1, 3]
   head:
     name: CTCAttnMultiHead
+    attn_in_channels: 128
     hidden_size: 256
     out_channels: *num_classes
     batch_max_length: *max_text_len
