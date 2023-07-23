@@ -789,6 +789,17 @@ class SVTRGTCGuided(SVTRNet):
             ]
         )
 
+        if last_stage:
+            self.last_conv_attn = nn.Conv2d(
+                in_channels=embed_dim[2],
+                out_channels=self.out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                pad_mode="pad",
+                has_bias=False,
+            )
+
     def forward_features(self, x: Tensor) -> Tuple[Tensor, ...]:
         x = self.patch_embed(x)
 
@@ -837,6 +848,18 @@ class SVTRGTCGuided(SVTRNet):
             x = self.dropout(x)
             x = ops.squeeze(x, axis=2)
             x = ops.transpose(x, (0, 2, 1))
+
+            x2 = ops.mean(
+                x2.transpose([0, 2, 1]).reshape([-1, self.embed_dim[2], h, self.HW[1]]),
+                axis=2,
+                keep_dims=True,
+            )
+            x2 = self.pool(x2)
+            x2 = self.last_conv_attn(x2)
+            x2 = self.hardswish(x2)
+            x2 = self.dropout(x2)
+            x2 = ops.squeeze(x2, axis=2)
+            x2 = ops.transpose(x2, (0, 2, 1))
 
         return [x1, x2, x3, x]
 
