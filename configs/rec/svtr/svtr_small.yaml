@@ -32,9 +32,9 @@ model:
     img_size: [32, 100]
     out_channels: 192
     patch_merging: Conv
-    embed_dim: [64, 128, 256]
-    depth: [3, 6, 3]
-    num_heads: [2, 4, 8]
+    embed_dim: [96, 192, 256]
+    depth: [3, 6, 6]
+    num_heads: [3, 6, 8]
     mixer:
       [
         "Local",
@@ -43,6 +43,9 @@ model:
         "Local",
         "Local",
         "Local",
+        "Local",
+        "Local",
+        "Global",
         "Global",
         "Global",
         "Global",
